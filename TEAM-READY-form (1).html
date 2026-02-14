@@ -158,19 +158,46 @@
           <input type="text" name="name_role" id="nameRole" placeholder="e.g. Sarah Ahmed — GM, Gulf Region">
         </div>
         <div class="field">
-          <label>Business Unit / Department <span class="req">*</span></label>
+          <label>Company Email <span class="req">*</span> <span class="hint">(for verification)</span></label>
+          <input type="email" name="email" id="emailInput" placeholder="yourname@yourcompany.com">
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="field">
+          <label>Department <span class="req">*</span></label>
           <select name="department" id="deptSelect">
-            <option value="" disabled selected>Select department…</option>
-            <option>Sales</option>
-            <option>Manufacturing</option>
-            <option>Human Resources</option>
-            <option>R&D / Innovation</option>
-            <option>Supply Chain</option>
-            <option>Marketing</option>
+            <option value="" disabled selected>Select your department…</option>
+            <option>Administration</option>
+            <option>Annex Labs</option>
+            <option>Business Development</option>
+            <option>Commex</option>
+            <option>Corporate Management</option>
+            <option>Creative and Communication</option>
+            <option>Engineering & Maintenance</option>
+            <option>Excellence</option>
+            <option>Exports</option>
+            <option>Facilities & Projects</option>
             <option>Finance</option>
-            <option>Export / International</option>
-            <option>Operations</option>
-            <option>Corporate Communications</option>
+            <option>HSE</option>
+            <option>Human Resources</option>
+            <option>IT</option>
+            <option>Internal Audit</option>
+            <option>Legal Affairs</option>
+            <option>Marketing</option>
+            <option>Medical</option>
+            <option>Medical Devices</option>
+            <option>New products / portfolio</option>
+            <option>Production</option>
+            <option>Quality Assurance</option>
+            <option>Quality Control</option>
+            <option>Regulatory & Registration</option>
+            <option>Research & Development</option>
+            <option>Sales</option>
+            <option>Sales & Distribution & Market Access</option>
+            <option>Supply Chain</option>
+            <option>Tissue Culture</option>
+            <option>Value Buying</option>
             <option value="Other">Other…</option>
           </select>
           <div class="other-reveal" id="deptOtherReveal">
@@ -221,7 +248,7 @@
         <input type="hidden" name="update_category" id="updateCategory">
         <div class="other-reveal" id="catOtherReveal">
           <div class="other-label">Please describe your update category</div>
-          <input type="text" name="category_other" id="catOther" placeholder="e.g. Regulatory Compliance, Sustainability Initiative, Digital Transformation…">
+          <input type="text" name="category_other" id="catOther" placeholder="e.g. Regulatory Compliance, Sustainability Initiative…">
         </div>
       </div>
 
@@ -438,6 +465,7 @@ document.getElementById('summaryInput').addEventListener('input', function() {
 function updateProgress() {
   const checks = [
     document.getElementById('nameRole')?.value?.trim(),
+    document.getElementById('emailInput')?.value?.trim(),
     document.getElementById('deptSelect')?.value,
     document.getElementById('reportingMonth')?.value,
     document.getElementById('updateCategory')?.value,
@@ -449,9 +477,9 @@ function updateProgress() {
   document.getElementById('progressBar').style.width = Math.round((filled / checks.length) * 100) + '%';
   const pills = document.querySelectorAll('.step-pill');
   pills[0].classList.toggle('active', filled >= 1);
-  pills[1].classList.toggle('active', filled >= 4);
-  pills[2].classList.toggle('active', filled >= 6);
-  pills[3].classList.toggle('active', filled >= 7);
+  pills[1].classList.toggle('active', filled >= 5);
+  pills[2].classList.toggle('active', filled >= 7);
+  pills[3].classList.toggle('active', filled >= 8);
 }
 
 document.querySelectorAll('input[type="text"], select, textarea').forEach(el => {
@@ -472,6 +500,8 @@ function showToast(msg, type = 'success') {
 // Validation
 function validate(d) {
   if (!d.name_role)        return 'Name & Role is required.';
+  if (!d.email)            return 'Company email is required.';
+  if (!d.email.includes('@')) return 'Please enter a valid email address.';
   if (!d.department)       return 'Please select a department.';
   if (d.department === 'Other' && !d.department_other) return 'Please specify your department.';
   if (!d.reporting_month)  return 'Please select a reporting month.';
@@ -490,6 +520,7 @@ function collectData() {
   const media = [...document.querySelectorAll('#mediaGroup .check-item.checked input')].map(i => i.value);
   const usage = [...document.querySelectorAll('#usageGroup .check-item.checked input')].map(i => i.value);
   return {
+    email:            f.email.value.trim(),
     name_role:        f.name_role.value.trim(),
     department:       f.department.value,
     department_other: (f.department_other?.value || '').trim(),
@@ -524,8 +555,8 @@ function resetForm() {
   document.querySelectorAll('.step-pill').forEach((p,i) => { if(i>0) p.classList.remove('active'); });
 }
 
-// Submit
-document.getElementById('mainForm').addEventListener('submit', async function(e) {
+// Submit - CORS-friendly approach using iframe
+document.getElementById('mainForm').addEventListener('submit', function(e) {
   e.preventDefault();
   const data = collectData();
   const err  = validate(data);
@@ -540,29 +571,43 @@ document.getElementById('mainForm').addEventListener('submit', async function(e)
   btnText.textContent   = 'Sending…'; 
   btnArrow.style.display= 'none';
 
-  try {
-    const res = await fetch(APPS_SCRIPT_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify(data),
-    });
-    const json = await res.json();
-    if (json.status === 'success') {
-      showToast('✅ Update submitted successfully! 🎉', 'success');
-      resetForm();
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    } else {
-      throw new Error(json.message || 'Server error');
-    }
-  } catch (error) {
-    console.error('Submission error:', error);
-    showToast('❌ Submission failed. Please try again or contact support.', 'error');
-  } finally {
+  // Create hidden iframe for CORS-free submission
+  const iframe = document.createElement('iframe');
+  iframe.name = 'hidden_iframe';
+  iframe.style.display = 'none';
+  document.body.appendChild(iframe);
+
+  // Create temporary form
+  const tempForm = document.createElement('form');
+  tempForm.method = 'POST';
+  tempForm.action = APPS_SCRIPT_URL;
+  tempForm.target = 'hidden_iframe';
+
+  // Add all data as hidden inputs
+  Object.keys(data).forEach(key => {
+    const input = document.createElement('input');
+    input.type = 'hidden';
+    input.name = key;
+    input.value = data[key];
+    tempForm.appendChild(input);
+  });
+
+  document.body.appendChild(tempForm);
+  tempForm.submit();
+
+  // Clean up and show success after brief delay
+  setTimeout(() => {
+    document.body.removeChild(tempForm);
+    document.body.removeChild(iframe);
+    showToast('✅ Update submitted successfully! 🎉', 'success');
+    resetForm();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    
     btn.disabled = false; 
     spinner.style.display  = 'none';
     btnText.textContent    = 'Submit My Update'; 
     btnArrow.style.display = 'inline';
-  }
+  }, 1500);
 });
 </script>
 </body>
